@@ -1,0 +1,42 @@
+<div class="page-flex" [class.sidebar-collapsed]="sidebarCollapsed()">
+
+  <aside class="sidebar">
+    <div class="sidebar-head">
+      <a routerLink="/chat" class="logo-wrapper">
+        <div class="logo-icon">MP</div>
+        <div class="logo-text">
+          <span class="logo-title">MyPlanning</span>
+          <span class="logo-subtitle">Gestion d'astreinte</span>
+        </div>
+      </a>
+      <button class="sidebar-toggle-btn" (click)="toggleSidebar()">
+        <span class="material-icons-outlined">menu</span>
+      </button>
+    </div>
+
+    <nav class="sidebar-body">
+      <ul class="sidebar-body-menu">
+        <li routerLinkActive="active">
+          <a routerLink="/chat">
+            <span class="material-icons-outlined menu-icon">smart_toy</span>
+            <span>Assistant IA</span>
+          </a>
+        </li>
+      </ul>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-section-label">Suggestions rapides</div>
+      <div class="quick-suggest-list">
+        <a routerLink="/chat" class="quick-suggest">Astreinte MG</a>
+        <a routerLink="/chat" class="quick-suggest">OFF cette semaine</a>
+        <a routerLink="/chat" class="quick-suggest">Disponibilité MG</a>
+        <a routerLink="/chat" class="quick-suggest">Toutes les équipes</a>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main-wrapper">
+    <router-outlet />
+  </div>
+</div>

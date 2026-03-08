@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: myITAssist
+  mvc:
+    async:
+      request-timeout: -1
+  datasource:
+    url: jdbc:postgresql://localhost:5432/my-it-assist-db
+    username: postgres
+    password: postgres
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  ai:
+    # ── Provider 1 : Groq (fastest, free tier) ──────────────────────────────
+    openai:
+      api-key: ${GROQ_API_KEY}
+      base-url: https://api.groq.com/openai
+      chat:
+        options:
+          model: llama-3.1-8b-instant
+    # ── Provider 2 : Ollama local (fallback, always available) ───────────────
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        options:
+          model: qwen3.5:4b
+
+logging:
+  level:
+    root: INFO
+    com.intelcia.myITAssist: DEBUG

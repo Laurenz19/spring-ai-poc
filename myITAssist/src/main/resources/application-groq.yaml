@@ -1,0 +1,11 @@
+spring:
+  ai:
+    model:
+      chat: openai        # use the OpenAI-compatible client (Groq is OpenAI-compatible)
+    openai:
+      api-key: ${GROQ_API_KEY}
+      base-url: https://api.groq.com/openai
+      chat:
+        options:
+          model: llama-3.3-70b-versatile   # best tool-calling quality on Groq
+          # model: llama-3.1-8b-instant    # fastest, switch here if needed

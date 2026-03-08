@@ -1,0 +1,85 @@
+/* ============================================
+   MyPlanning Design System – Global Styles
+   ============================================ */
+
+:root {
+  // Primary
+  --primary:        #EA287C;
+  --primary-light:  #FFF6FA;
+  --primary-hover:  #D9214E;
+  --primary-50:     #fdeef3;
+
+  // Grays
+  --gray-50:  #F7F7FC;
+  --gray-100: #F2F4F7;
+  --gray-200: #EAECF0;
+  --gray-300: #D0D5DD;
+  --gray-400: #98A2B3;
+  --gray-500: #667085;
+  --gray-600: #475467;
+  --gray-700: #344054;
+  --gray-800: #1D2939;
+  --gray-900: #101828;
+
+  // Functional
+  --success:       #12B76A;
+  --success-light: #d4edda;
+  --warning:       #F79009;
+  --warning-light: #fff3cd;
+  --danger:        #F04438;
+  --danger-light:  #f8d7da;
+  --info:          #2E90FA;
+  --info-light:    #dbeafe;
+
+  // Layout
+  --sidebar-width:     253px;
+  --sidebar-collapsed: 72px;
+  --navbar-height:     48px;
+  --content-bg:        #F5F6FA;
+  --card-bg:           #ffffff;
+  --sidebar-bg:        #ffffff;
+  --sidebar-text:      #475467;
+  --sidebar-border:    #F2F4F7;
+
+  // Shadows
+  --shadow-sm:   0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-md:   0 4px 20px rgba(0, 0, 0, 0.05);
+  --shadow-lg:   0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --shadow-card: 0 1px 3px rgba(16, 24, 40, 0.1), 0 1px 2px rgba(16, 24, 40, 0.06);
+
+  // Border radius
+  --radius-sm:   6px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
+  --radius-xl:   16px;
+  --radius-pill: 9999px;
+
+  // Transition
+  --transition: all 0.15s ease;
+}
+
+// Reset
+*, *::before, *::after { box-sizing: border-box; }
+
+* { margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  color: var(--gray-700);
+  background: var(--content-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+a { text-decoration: none; }
+
+ul { list-style: none; }
+
+button { font-family: inherit; cursor: pointer; }
+
+input, textarea { font-family: inherit; }

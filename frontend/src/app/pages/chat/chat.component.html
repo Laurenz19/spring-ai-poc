@@ -1,0 +1,102 @@
+<!-- Navbar -->
+<nav class="main-nav">
+  <div class="main-nav-start">
+    <span class="material-icons-outlined">smart_toy</span>
+    <span>Assistant IA · Planning</span>
+  </div>
+  <div class="main-nav-end">
+    <button class="btn btn-secondary btn-sm" (click)="clearChat()">
+      <span class="material-icons-outlined">delete_sweep</span>
+      <span>Effacer</span>
+    </button>
+    <span class="nav-user-name">Admin Intelcia</span>
+    <div class="online-dot"></div>
+  </div>
+</nav>
+
+<!-- Chat container -->
+<div class="chat-container">
+
+  <!-- Chat header -->
+  <div class="chat-header">
+    <div class="chat-header-left">
+      <div class="chat-avatar bot-avatar">
+        <span class="material-icons-outlined">smart_toy</span>
+      </div>
+      <div>
+        <div class="chat-header-title">Assistant MyPlanning</div>
+        <div class="chat-header-status">
+          <span class="status-dot"></span>
+          En ligne · Données en temps réel
+        </div>
+      </div>
+    </div>
+    <div class="chat-header-badges">
+      <span class="badge badge-primary">S07</span>
+    </div>
+  </div>
+
+  <!-- Messages -->
+  <div class="chat-messages" #messagesEl>
+    @for (msg of messages(); track $index) {
+      <div class="chat-msg" [ngClass]="msg.role === 'bot' ? 'bot-msg' : 'user-msg'">
+        @if (msg.role === 'bot') {
+          <div class="chat-avatar bot-avatar sm">
+            <span class="material-icons-outlined">smart_toy</span>
+          </div>
+        }
+        <div class="chat-bubble" [ngClass]="msg.role === 'bot' ? 'bot-bubble' : 'user-bubble'"
+             [innerHTML]="msg.role === 'bot' ? (msg.content | markdown) : msg.content">
+        </div>
+        @if (msg.role === 'user') {
+          <div class="chat-avatar user-avatar sm">
+            <span class="material-icons-outlined">person</span>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Typing indicator — shown only while waiting for first stream chunk -->
+    @if (loading() && !isStreaming()) {
+      <div class="chat-msg bot-msg">
+        <div class="chat-avatar bot-avatar sm">
+          <span class="material-icons-outlined">smart_toy</span>
+        </div>
+        <div class="chat-bubble bot-bubble typing-bubble">
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- Suggestion chips -->
+  <div class="chat-suggestions">
+    @for (s of suggestions; track s.label) {
+      <button class="suggestion-chip" (click)="send(s.text)" [disabled]="loading()">
+        <span class="material-icons-outlined">{{ s.icon }}</span>
+        {{ s.label }}
+      </button>
+    }
+  </div>
+
+  <!-- Input area -->
+  <div class="chat-input-area">
+    <div class="chat-input-wrapper">
+      <input
+        type="text"
+        class="chat-input"
+        placeholder="Posez votre question (ex: Qui est en astreinte ?)"
+        [(ngModel)]="inputText"
+        (keydown.enter)="send()"
+        [disabled]="loading()"
+      >
+      <button class="chat-send-btn" (click)="send()" [disabled]="loading()">
+        <span class="material-icons-outlined">send</span>
+      </button>
+    </div>
+    <div class="chat-input-hint">Appuyez sur Entrée ou cliquez Envoyer</div>
+  </div>
+
+</div>
