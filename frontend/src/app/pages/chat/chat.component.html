@@ -84,6 +84,27 @@
   <!-- Input area -->
   <div class="chat-input-area">
     <div class="chat-input-wrapper">
+      <!-- AI model selector pill -->
+      <div class="model-pill-wrap" (click)="toggleModelDropdown()">
+        <span class="material-icons-outlined model-pill-icon">psychology</span>
+        <span class="model-pill-label">{{ selectedModelLabel }}</span>
+        <span class="material-icons-outlined model-pill-chevron" [class.open]="modelDropdownOpen">expand_more</span>
+        @if (modelDropdownOpen) {
+          <div class="model-dropdown" (click)="$event.stopPropagation()">
+            <button class="model-dropdown-item" [class.active]="selectedModelId === null" (click)="selectModel(null)">
+              <span class="material-icons-outlined">auto_awesome</span>
+              Auto
+            </button>
+            @for (m of availableModels(); track m.id) {
+              <button class="model-dropdown-item" [class.active]="selectedModelId === m.id" (click)="selectModel(m.id)">
+                <span class="material-icons-outlined">memory</span>
+                {{ m.provider }} · {{ m.name }}
+              </button>
+            }
+          </div>
+        }
+      </div>
+      <div class="input-divider"></div>
       <input
         type="text"
         class="chat-input"

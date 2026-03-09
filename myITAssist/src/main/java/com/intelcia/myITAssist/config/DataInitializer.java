@@ -1,15 +1,10 @@
 package com.intelcia.myITAssist.config;
 
-import com.intelcia.myITAssist.model.Astreinte;
-import com.intelcia.myITAssist.model.Collaborator;
-import com.intelcia.myITAssist.model.Planning;
-import com.intelcia.myITAssist.model.Team;
-import com.intelcia.myITAssist.repository.AstreinteRepository;
-import com.intelcia.myITAssist.repository.CollaboratorRepository;
-import com.intelcia.myITAssist.repository.PlanningRepository;
-import com.intelcia.myITAssist.repository.TeamRepository;
+import com.intelcia.myITAssist.model.*;
+import com.intelcia.myITAssist.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
@@ -24,9 +19,16 @@ public class DataInitializer implements CommandLineRunner {
     private final CollaboratorRepository collaboratorRepo;
     private final AstreinteRepository astreinteRepo;
     private final PlanningRepository planningRepo;
+    private final AiModelRepository aiModelRepo;
+
+    @Value("${GROQ_API_KEY:}")      private String groqApiKey;
+    @Value("${GEMINI_API_KEY:}")    private String geminiApiKey;
+    @Value("${ANTHROPIC_API_KEY:}") private String anthropicApiKey;
+    @Value("${OPENAI_API_KEY:}")    private String openaiApiKey;
 
     @Override
     public void run(String... args) {
+        seedAiModels();
         if (teamRepo.count() > 0) {
             log.info("Data already initialized, skipping seed.");
             return;
@@ -36,6 +38,34 @@ public class DataInitializer implements CommandLineRunner {
         seedAstreintes();
         seedPlanning();
         log.info("Database seeded successfully.");
+    }
+
+    // ─── AI MODELS ────────────────────────────────────────────────────────────
+
+    private void seedAiModels() {
+        seedIfAbsent(Provider.GROQ,      "llama-3.1-8b-instant",       groqApiKey,      "https://api.groq.com/openai",                              true);
+        seedIfAbsent(Provider.GEMINI,    "gemini-2.0-flash",           geminiApiKey,    "https://generativelanguage.googleapis.com/v1beta/openai/", true);
+        seedIfAbsent(Provider.OLLAMA,    "qwen3.5:4b",                 "",              "http://localhost:11434",                                    true);
+        seedIfAbsent(Provider.ANTHROPIC, "claude-haiku-4-5-20251001",  anthropicApiKey, null,                                                       false);
+        seedIfAbsent(Provider.OPENAI,    "gpt-4o-mini",                openaiApiKey,    null,                                                       false);
+    }
+
+    private void seedIfAbsent(Provider provider, String name, String apiKey, String baseUrl, boolean enabled) {
+        if (!aiModelRepo.existsByProviderAndName(provider, name)) {
+            aiModelRepo.save(aiModel(provider, name, apiKey, baseUrl, enabled));
+            log.info("AI model added: {} / {}", provider, name);
+        }
+    }
+
+    private AiModel aiModel(Provider provider, String name, String apiKey, String baseUrl, boolean enabled) {
+        AiModel m = new AiModel();
+        m.setProvider(provider);
+        m.setName(name);
+        m.setApiKey(apiKey);
+        m.setBaseUrl(baseUrl);
+        m.setEnabled(enabled);
+        m.setTokenReached(false);
+        return m;
     }
 
     // ─── TEAMS & COLLABORATORS ────────────────────────────────────────────────

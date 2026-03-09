@@ -2,14 +2,16 @@ package com.intelcia.myITAssist.service;
 
 import com.intelcia.myITAssist.model.Collaborator;
 import com.intelcia.myITAssist.model.Planning;
+import com.intelcia.myITAssist.model.Team;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Service;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.util.List;
-import java.util.Map;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -17,13 +19,19 @@ import java.util.stream.IntStream;
 @RequiredArgsConstructor
 public class PlanningTools {
 
+    private static final DateTimeFormatter DAY_FMT = DateTimeFormatter.ofPattern("EEE dd/MM", Locale.FRENCH);
+
     private final AstreinteService astreinteService;
     private final PlanningService planningService;
     private final CollaboratorService collaboratorService;
     private final TeamService teamService;
 
-    @Tool(description = "Get on-call agents (astreinte) for a country on the current week. If no country is specified, returns all countries.")
-    public String getAstreinte(String country) {
+    // ─── ASTREINTE ────────────────────────────────────────────────────────────
+
+    @Tool(description = "Get on-call agents (astreinte) for the current week. Optionally filter by country.")
+    public String getAstreinte(
+        @ToolParam(required = false, description = "Country name (e.g. 'Madagascar', 'France'). Omit for all countries.") String country) {
+
         LocalDate monday = LocalDate.now().with(DayOfWeek.MONDAY);
         var list = (country == null || country.isBlank())
             ? astreinteService.findByWeek(monday)
@@ -42,19 +50,59 @@ public class PlanningTools {
             .collect(Collectors.joining("\n"));
     }
 
-    @Tool(description = "Get all agents who are OFF (day off) during the current week")
-    public String getOffAgents() {
-        LocalDate monday = LocalDate.now().with(DayOfWeek.MONDAY);
-        var offs = planningService.findOffAgentsByWeek(monday);
+    // ─── PLANNING FLEXIBLE ────────────────────────────────────────────────────
 
-        if (offs.isEmpty()) return "Aucun agent OFF cette semaine.";
+    @Tool(description = """
+        Main planning query tool. Supports any combination of filters.
+        Use for: who is OFF today/this week, schedule of a team or person, planning by country or shift,
+        weekly/monthly overview, night shifts, who works on a specific date.
+        If no date is given, defaults to today. For a full week use from=monday to=sunday.
+        shiftType values: 'off' (day off), 'work' (normal), 'astreinte' (on-call).
+        shiftKeyword searches inside the shift label (e.g. '19:00' for evening shifts, 'AS' for astreinte shifts).
+        """)
+    public String getPlanning(
+        @ToolParam(required = false, description = "Start date ISO YYYY-MM-DD. Defaults to today.") LocalDate from,
+        @ToolParam(required = false, description = "End date ISO YYYY-MM-DD. Defaults to same as from (single day).") LocalDate to,
+        @ToolParam(required = false, description = "Team name, partial match (e.g. 'MADA2', 'Ebene', 'Paris').") String teamName,
+        @ToolParam(required = false, description = "Country (e.g. 'Madagascar', 'France', 'Maurice', 'Sénégal', 'Abidjan').") String country,
+        @ToolParam(required = false, description = "Collaborator name, partial match (e.g. 'Jacky', 'David').") String collaboratorName,
+        @ToolParam(required = false, description = "Shift type filter: 'off', 'work', 'astreinte'. Omit for all shifts.") String shiftType,
+        @ToolParam(required = false, description = "Keyword in shift label, e.g. '19:00', 'AS', '00:00'. Useful for night/evening shift queries.") String shiftKeyword
+    ) {
+        LocalDate effectiveFrom = (from != null) ? from : LocalDate.now();
+        LocalDate effectiveTo   = (to   != null) ? to   : effectiveFrom;
 
-        return offs.stream()
-            .map(p -> p.getCollaboratorName() + " · OFF le " + p.getDay())
-            .collect(Collectors.joining("\n"));
+        // Resolve team IDs from teamName and/or country
+        List<String> teamIds = resolveTeamIds(teamName, country);
+
+        List<Planning> entries = planningService.findByFilters(
+            effectiveFrom, effectiveTo, teamIds, collaboratorName, shiftType, shiftKeyword
+        );
+
+        if (entries.isEmpty()) {
+            return buildEmptyMessage(effectiveFrom, effectiveTo, teamName, country, collaboratorName, shiftType);
+        }
+
+        Map<String, String> teamNames = teamService.buildIdToNameMap();
+        long days = effectiveTo.toEpochDay() - effectiveFrom.toEpochDay() + 1;
+
+        // Single day → group by team, flat list
+        if (days == 1) {
+            return formatSingleDay(entries, teamNames, effectiveFrom);
+        }
+
+        // Period ≤ 7 days → weekly grid per team
+        if (days <= 7) {
+            return formatWeeklyGrid(entries, teamNames, effectiveFrom, effectiveTo);
+        }
+
+        // Longer period → summary by collaborator
+        return formatPeriodSummary(entries, teamNames, effectiveFrom, effectiveTo);
     }
 
-    @Tool(description = "Get the GSM contact of an agent by name")
+    // ─── CONTACT ──────────────────────────────────────────────────────────────
+
+    @Tool(description = "Get the GSM contact of an agent by name.")
     public String getContact(String name) {
         return collaboratorService.findByName(name)
             .map(c -> c.getName() + " · GSM: " + c.getGsm()
@@ -62,23 +110,9 @@ public class PlanningTools {
             .orElse("Agent introuvable : " + name);
     }
 
-    @Tool(description = "Get today's planning for a specific team by its name")
-    public String getTeamPlanning(String teamName) {
-        List<com.intelcia.myITAssist.model.Team> teams = teamService.findByName(teamName);
-        if (teams.isEmpty()) return "Équipe non trouvée : " + teamName;
+    // ─── TEAMS ────────────────────────────────────────────────────────────────
 
-        return teams.stream()
-            .map(team -> {
-                var entries = planningService.findByTeamAndDay(team.getId(), LocalDate.now());
-                if (entries.isEmpty()) return "Aucun planning pour " + team.getName() + " aujourd'hui.";
-                return "**" + team.getName() + "**\n" + entries.stream()
-                    .map(p -> p.getCollaboratorName() + " : " + p.getShiftLabel())
-                    .collect(Collectors.joining("\n"));
-            })
-            .collect(Collectors.joining("\n\n"));
-    }
-
-    @Tool(description = "List all teams and their members for a given country")
+    @Tool(description = "List all teams and their members for a given country.")
     public String getTeamsAndTeamMemberByCountry(String country) {
         var teams = teamService.findByCountry(country);
         if (teams.isEmpty()) return "Aucune équipe trouvée pour le pays : " + country;
@@ -90,7 +124,7 @@ public class PlanningTools {
             .collect(Collectors.joining("\n"));
     }
 
-    @Tool(description = "List teams and members filtered by both country and team name")
+    @Tool(description = "List teams and members filtered by both country and team name.")
     public String getTeamsAndTeamMemberByCountryAndTeamName(String country, String teamName) {
         var teams = teamService.findByCountryAndName(country, teamName);
         if (teams.isEmpty()) return "Aucune équipe trouvée pour " + country + " / " + teamName;
@@ -102,46 +136,123 @@ public class PlanningTools {
             .collect(Collectors.joining("\n"));
     }
 
-    @Tool(description = "Get the full weekly planning of all teams. Provide any date within the target week in ISO format YYYY-MM-DD (e.g. 2026-01-05).")
-    public String getPlanningOfAllTeamsByWeek(LocalDate date) {
-        LocalDate monday = date.with(DayOfWeek.MONDAY);
-        LocalDate sunday = monday.plusDays(6);
+    // ─── HELPERS ──────────────────────────────────────────────────────────────
 
-        var weekPlan = planningService.findByWeek(monday);
-        if (weekPlan.isEmpty()) return "Aucun planning trouvé pour la semaine du " + monday;
+    /** Resolve team IDs from optional teamName and/or country filters. Returns null if no filter. */
+    private List<String> resolveTeamIds(String teamName, String country) {
+        if ((teamName == null || teamName.isBlank()) && (country == null || country.isBlank())) {
+            return null; // no filter
+        }
 
-        Map<String, String> teamNames = teamService.buildIdToNameMap();
-        String[] dayLabels = {"Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"};
+        List<Team> teams;
+        if (teamName != null && !teamName.isBlank() && country != null && !country.isBlank()) {
+            teams = teamService.findByCountryAndName(country, teamName);
+        } else if (teamName != null && !teamName.isBlank()) {
+            teams = teamService.findByName(teamName);
+        } else {
+            teams = teamService.findByCountry(country);
+        }
 
-        Map<String, Map<String, Map<Integer, String>>> grouped = weekPlan.stream()
-            .collect(Collectors.groupingBy(
-                Planning::getTeamId,
-                Collectors.groupingBy(
-                    Planning::getCollaboratorName,
-                    Collectors.toMap(p -> p.getDay().getDayOfWeek().getValue(), Planning::getShiftLabel)
-                )
-            ));
+        return teams.stream().map(Team::getId).collect(Collectors.toList());
+    }
 
-        StringBuilder sb = new StringBuilder();
-        sb.append("Semaine du ").append(monday).append(" au ").append(sunday).append("\n\n");
+    /** Single-day output: grouped by team */
+    private String formatSingleDay(List<Planning> entries, Map<String, String> teamNames, LocalDate day) {
+        StringBuilder sb = new StringBuilder("Planning du " + day.format(DAY_FMT) + " :\n\n");
 
-        grouped.entrySet().stream()
-            .sorted(Map.Entry.comparingByKey())
-            .forEach(teamEntry -> {
-                String teamName = teamNames.getOrDefault(teamEntry.getKey(), teamEntry.getKey());
-                sb.append("### ").append(teamName).append("\n");
-
-                teamEntry.getValue().entrySet().stream()
-                    .sorted(Map.Entry.comparingByKey())
-                    .forEach(memberEntry -> {
-                        String shifts = IntStream.rangeClosed(1, 7)
-                            .mapToObj(i -> dayLabels[i - 1] + ": " + memberEntry.getValue().getOrDefault(i, "—"))
-                            .collect(Collectors.joining(" | "));
-                        sb.append("**").append(memberEntry.getKey()).append("** → ").append(shifts).append("\n");
-                    });
+        entries.stream()
+            .collect(Collectors.groupingBy(Planning::getTeamId, LinkedHashMap::new, Collectors.toList()))
+            .forEach((teamId, list) -> {
+                sb.append("▸ ").append(teamNames.getOrDefault(teamId, teamId)).append("\n");
+                list.stream()
+                    .sorted(Comparator.comparing(Planning::getCollaboratorName))
+                    .forEach(p -> sb.append("  ").append(padRight(p.getCollaboratorName(), 14))
+                        .append(" → ").append(p.getShiftLabel()).append("\n"));
                 sb.append("\n");
             });
 
-        return sb.toString();
+        return sb.toString().trim();
+    }
+
+    /** Weekly grid: team → collaborator → Mon|Tue|...|Sun */
+    private String formatWeeklyGrid(List<Planning> entries, Map<String, String> teamNames,
+                                    LocalDate from, LocalDate to) {
+        long days = to.toEpochDay() - from.toEpochDay() + 1;
+        String[] dayLabels = IntStream.range(0, (int) days)
+            .mapToObj(i -> from.plusDays(i).format(DAY_FMT))
+            .toArray(String[]::new);
+
+        StringBuilder sb = new StringBuilder(
+            "Planning du " + from.format(DAY_FMT) + " au " + to.format(DAY_FMT) + " :\n\n");
+
+        // group: teamId → collaboratorName → dayOffset → shiftLabel
+        Map<String, Map<String, Map<Long, String>>> grouped = entries.stream()
+            .collect(Collectors.groupingBy(
+                Planning::getTeamId,
+                LinkedHashMap::new,
+                Collectors.groupingBy(
+                    Planning::getCollaboratorName,
+                    LinkedHashMap::new,
+                    Collectors.toMap(
+                        p -> p.getDay().toEpochDay() - from.toEpochDay(),
+                        Planning::getShiftLabel,
+                        (a, b) -> a
+                    )
+                )
+            ));
+
+        grouped.forEach((teamId, members) -> {
+            sb.append("### ").append(teamNames.getOrDefault(teamId, teamId)).append("\n");
+            members.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(e -> {
+                    String shifts = IntStream.range(0, (int) days)
+                        .mapToObj(i -> dayLabels[i] + ": " + e.getValue().getOrDefault((long) i, "—"))
+                        .collect(Collectors.joining(" | "));
+                    sb.append("**").append(e.getKey()).append("** → ").append(shifts).append("\n");
+                });
+            sb.append("\n");
+        });
+
+        return sb.toString().trim();
+    }
+
+    /** Period summary: list with date + shift per line, grouped by collaborator */
+    private String formatPeriodSummary(List<Planning> entries, Map<String, String> teamNames,
+                                       LocalDate from, LocalDate to) {
+        StringBuilder sb = new StringBuilder(
+            "Planning du " + from + " au " + to + " :\n\n");
+
+        entries.stream()
+            .collect(Collectors.groupingBy(Planning::getCollaboratorName, TreeMap::new, Collectors.toList()))
+            .forEach((name, list) -> {
+                String teamLabel = teamNames.getOrDefault(list.get(0).getTeamId(), list.get(0).getTeamId());
+                sb.append("**").append(name).append("** (").append(teamLabel).append(")\n");
+                list.stream()
+                    .sorted(Comparator.comparing(Planning::getDay))
+                    .forEach(p -> sb.append("  ").append(p.getDay().format(DAY_FMT))
+                        .append(" → ").append(p.getShiftLabel()).append("\n"));
+                sb.append("\n");
+            });
+
+        return sb.toString().trim();
+    }
+
+    private String buildEmptyMessage(LocalDate from, LocalDate to,
+                                     String teamName, String country,
+                                     String collaboratorName, String shiftType) {
+        List<String> filters = new ArrayList<>();
+        if (teamName != null && !teamName.isBlank())        filters.add("équipe '" + teamName + "'");
+        if (country != null && !country.isBlank())          filters.add("pays '" + country + "'");
+        if (collaboratorName != null && !collaboratorName.isBlank()) filters.add("agent '" + collaboratorName + "'");
+        if (shiftType != null && !shiftType.isBlank())      filters.add("type '" + shiftType + "'");
+
+        String period = from.equals(to) ? "le " + from : "du " + from + " au " + to;
+        String filterStr = filters.isEmpty() ? "" : " [" + String.join(", ", filters) + "]";
+        return "Aucun planning trouvé " + period + filterStr + ".";
+    }
+
+    private String padRight(String s, int n) {
+        return String.format("%-" + n + "s", s);
     }
 }

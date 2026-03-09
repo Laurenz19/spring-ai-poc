@@ -1,0 +1,108 @@
+<!-- Navbar -->
+<nav class="main-nav">
+  <div class="main-nav-start">
+    <span class="material-icons-outlined">settings</span>
+    <span>Fournisseurs IA</span>
+  </div>
+  <div class="main-nav-end">
+    <span class="nav-user-name">Admin Intelcia</span>
+    <div class="online-dot"></div>
+  </div>
+</nav>
+
+<!-- Page content -->
+<div class="page-content">
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Fournisseurs IA</h1>
+      <p class="page-subtitle">
+        Activez ou désactivez les fournisseurs. L'assistant utilise les fournisseurs actifs dans l'ordre affiché.
+      </p>
+    </div>
+  </div>
+
+  <div class="models-grid">
+    @for (model of models(); track model.id) {
+      <div class="model-card" [ngClass]="{ disabled: !model.enabled }">
+
+        <!-- Card header -->
+        <div class="card-head">
+          <div class="provider-badge" [ngClass]="providerMeta[model.provider].color">
+            <span class="material-icons-outlined">{{ providerMeta[model.provider].icon }}</span>
+          </div>
+          <div class="card-head-info">
+            <span class="provider-label">{{ providerMeta[model.provider].label }}</span>
+            <div class="status-row">
+              @if (model.tokenReached) {
+                <span class="badge badge-danger">Quota épuisé</span>
+              } @else if (model.enabled) {
+                <span class="badge badge-success">Actif</span>
+              } @else {
+                <span class="badge badge-neutral">Inactif</span>
+              }
+            </div>
+          </div>
+          <!-- Toggle switch -->
+          <label class="toggle" [title]="model.enabled ? 'Désactiver' : 'Activer'">
+            <input type="checkbox" [checked]="model.enabled" (change)="toggle(model)">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <!-- Card body -->
+        @if (editingId() !== model.id) {
+          <div class="card-body">
+            <div class="field-row">
+              <span class="field-label">Modèle</span>
+              <span class="field-value">{{ model.name }}</span>
+            </div>
+            @if (model.baseUrl) {
+              <div class="field-row">
+                <span class="field-label">Base URL</span>
+                <span class="field-value url-value">{{ model.baseUrl }}</span>
+              </div>
+            }
+            <div class="field-row">
+              <span class="field-label">Clé API</span>
+              <span class="field-value key-value">{{ maskKey(model.apiKey) }}</span>
+            </div>
+          </div>
+
+          <div class="card-footer">
+            <button class="btn btn-ghost btn-sm" (click)="startEdit(model)">
+              <span class="material-icons-outlined">edit</span>
+              Modifier
+            </button>
+          </div>
+
+        } @else {
+          <!-- Edit form -->
+          <div class="card-body edit-form">
+            <label class="form-field">
+              <span class="field-label">Modèle</span>
+              <input class="form-input" [(ngModel)]="editForm.name" placeholder="ex: llama-3.1-8b-instant">
+            </label>
+            <label class="form-field">
+              <span class="field-label">Base URL</span>
+              <input class="form-input" [(ngModel)]="editForm.baseUrl" placeholder="ex: https://api.groq.com/openai">
+            </label>
+            <label class="form-field">
+              <span class="field-label">Clé API</span>
+              <input class="form-input" type="password" [(ngModel)]="editForm.apiKey" placeholder="sk-…">
+            </label>
+          </div>
+          <div class="card-footer edit-footer">
+            <button class="btn btn-ghost btn-sm" (click)="cancelEdit()">Annuler</button>
+            <button class="btn btn-primary btn-sm" (click)="saveEdit()">
+              <span class="material-icons-outlined">save</span>
+              Enregistrer
+            </button>
+          </div>
+        }
+
+      </div>
+    }
+  </div>
+
+</div>

@@ -8,16 +8,16 @@ export class ChatService {
 
   constructor(private http: HttpClient) {}
 
-  send(message: string): Observable<string> {
-    return this.http.post(this.apiUrl, message, {
-      headers: new HttpHeaders({ 'Content-Type': 'text/plain' }),
+  send(message: string, modelId?: number | null): Observable<string> {
+    return this.http.post(this.apiUrl, { message, modelId: modelId ?? null }, {
+      headers: new HttpHeaders({ 'Content-Type': 'application/json' }),
       responseType: 'text'
     });
   }
 
-  sendStream(message: string): Observable<string> {
-    return this.http.post(this.apiUrl, message, {
-      headers: new HttpHeaders({ 'Content-Type': 'text/plain' }),
+  sendStream(message: string, modelId?: number | null): Observable<string> {
+    return this.http.post(`${this.apiUrl}/stream`, { message, modelId: modelId ?? null }, {
+      headers: new HttpHeaders({ 'Content-Type': 'application/json' }),
       responseType: 'text'
     });
   }

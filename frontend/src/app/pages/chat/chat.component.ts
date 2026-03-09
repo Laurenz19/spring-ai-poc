@@ -1,7 +1,9 @@
-import { Component, ElementRef, ViewChild, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, OnInit, ViewChild, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgClass } from '@angular/common';
 import { ChatService } from '../../services/chat.service';
+import { AiModelService } from '../../services/ai-model.service';
+import { AiModel } from '../../models/ai-model.model';
 import { Message } from '../../models/message.model';
 import { MarkdownPipe } from '../../pipes/markdown.pipe';
 
@@ -11,7 +13,7 @@ import { MarkdownPipe } from '../../pipes/markdown.pipe';
   templateUrl: './chat.component.html',
   styleUrl: './chat.component.scss'
 })
-export class ChatComponent {
+export class ChatComponent implements OnInit {
   @ViewChild('messagesEl') messagesEl!: ElementRef<HTMLDivElement>;
 
   messages = signal<Message[]>([
@@ -34,6 +36,33 @@ Que puis-je faire pour vous ?`,
   loading = signal(false);
   isStreaming = signal(false);
 
+  availableModels = signal<AiModel[]>([]);
+  /** null = auto (fallback chain) */
+  selectedModelId: number | null = null;
+  modelDropdownOpen = false;
+
+  get selectedModelLabel(): string {
+    if (this.selectedModelId === null) return 'Auto';
+    const m = this.availableModels().find(m => m.id === this.selectedModelId);
+    return m ? `${m.provider} · ${m.name}` : 'Auto';
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(e: MouseEvent) {
+    if (!(e.target as HTMLElement).closest('.model-pill-wrap')) {
+      this.modelDropdownOpen = false;
+    }
+  }
+
+  toggleModelDropdown() {
+    if (!this.loading()) this.modelDropdownOpen = !this.modelDropdownOpen;
+  }
+
+  selectModel(id: number | null) {
+    this.selectedModelId = id;
+    this.modelDropdownOpen = false;
+  }
+
   readonly suggestions = [
     { icon: 'support_agent', label: 'Astreinte Madagascar',  text: 'Qui est en astreinte à Madagascar ?' },
     { icon: 'event_busy',    label: 'OFF en cours',          text: 'Qui est OFF cette semaine ?' },
@@ -42,7 +71,16 @@ Que puis-je faire pour vous ?`,
     { icon: 'warning',       label: 'Escalade Jacky',        text: 'Jacky ne répond pas, escalade ?' },
   ];
 
-  constructor(private chatService: ChatService) {}
+  constructor(
+    private chatService: ChatService,
+    private aiModelService: AiModelService
+  ) {}
+
+  ngOnInit() {
+    this.aiModelService.findAll().subscribe(models =>
+      this.availableModels.set(models.filter(m => m.enabled && !m.tokenReached))
+    );
+  }
 
   send(text?: string) {
     const msg = (text ?? this.inputText).trim();
@@ -53,7 +91,7 @@ Que puis-je faire pour vous ?`,
     this.loading.set(true);
     this.isStreaming.set(false);
 
-    this.chatService.sendStream(msg).subscribe({
+    this.chatService.sendStream(msg, this.selectedModelId).subscribe({
       next: (chunk) => {
         if (!this.isStreaming()) {
           this.isStreaming.set(true);

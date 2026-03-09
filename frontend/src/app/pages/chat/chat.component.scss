@@ -36,6 +36,119 @@
   }
 }
 
+// Model pill inside the input wrapper
+.model-pill-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px 0 8px;
+  height: 28px;
+  flex-shrink: 0;
+  background: var(--gray-100);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: var(--transition);
+  position: relative;
+  user-select: none;
+
+  &:hover {
+    border-color: var(--primary);
+    background: var(--primary-50);
+  }
+}
+
+.model-pill-icon {
+  font-size: 14px;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.model-pill-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray-700);
+  white-space: nowrap;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.model-pill-chevron {
+  font-size: 14px;
+  color: var(--gray-400);
+  pointer-events: none;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+
+  &.open { transform: rotate(180deg); }
+}
+
+// Custom dropdown
+.model-dropdown {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  min-width: 220px;
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 4px;
+  z-index: 50;
+  animation: dropdownIn 0.12s ease;
+}
+
+@keyframes dropdownIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.model-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gray-700);
+  cursor: pointer;
+  text-align: left;
+  transition: var(--transition);
+
+  .material-icons-outlined {
+    font-size: 15px;
+    color: var(--gray-400);
+  }
+
+  &:hover {
+    background: var(--gray-50);
+    color: var(--gray-900);
+
+    .material-icons-outlined { color: var(--primary); }
+  }
+
+  &.active {
+    background: var(--primary-50);
+    color: var(--primary);
+    font-weight: 600;
+
+    .material-icons-outlined { color: var(--primary); }
+  }
+}
+
+.input-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--gray-200);
+  flex-shrink: 0;
+  margin: 0 4px;
+}
+
 .main-nav-end {
   display: flex;
   align-items: center;
