@@ -56,12 +56,19 @@ public class ChatService {
             - Ne demande JAMAIS la date à l'utilisateur — tu la connais déjà.
             - "qui est OFF cette semaine" → getPlanning(from=%s, to=%s, shiftType=off)
             """.formatted(
-                today, today,
-                monday, sunday,
-                monday.plusWeeks(1), monday.plusWeeks(1).plusDays(6),
-                monthStart, monthEnd,
-                today.getYear(),
-                monday, sunday
+                // header (6 spécificateurs)
+                today,                                              // Aujourd'hui
+                monday, sunday,                                     // Cette semaine
+                monthStart, monthEnd,                               // Ce mois
+                today.getYear(),                                    // Année (%d)
+                // tableau (8 spécificateurs)
+                today, today,                                       // aujourd'hui from/to
+                monday, sunday,                                     // cette semaine from/to
+                monday.plusWeeks(1), monday.plusWeeks(1).plusDays(6), // semaine prochaine from/to
+                monthStart, monthEnd,                               // ce mois from/to
+                // règle année + exemple OFF (3 spécificateurs)
+                today.getYear(),                                    // année (%d)
+                monday, sunday                                      // OFF exemple from/to
             );
     }
 
