@@ -112,25 +112,28 @@ public class PlanningTools {
 
     // ─── TEAMS ────────────────────────────────────────────────────────────────
 
-    @Tool(description = "List all teams and their members for a given country.")
-    public String getTeamsAndTeamMemberByCountry(String country) {
-        var teams = teamService.findByCountry(country);
-        if (teams.isEmpty()) return "Aucune équipe trouvée pour le pays : " + country;
+    @Tool(description = "List teams and their members. Optional filters by country and team name.")
+    public String getTeams(
+        @ToolParam(required = false, description = "Country name (e.g. 'Madagascar', 'France')") String country,
+        @ToolParam(required = false, description = "Team name, partial match (e.g. 'MADA2')") String teamName
+    ) {
+        List<Team> teams;
+        if (country != null && !country.isBlank() && teamName != null && !teamName.isBlank()) {
+            teams = teamService.findByCountryAndName(country, teamName);
+        } else if (country != null && !country.isBlank()) {
+            teams = teamService.findByCountry(country);
+        } else if (teamName != null && !teamName.isBlank()) {
+            teams = teamService.findByName(teamName);
+        } else {
+            return "Veuillez préciser un pays ou un nom d'équipe pour lister les membres.";
+        }
+
+        if (teams.isEmpty()) {
+            return "Aucune équipe trouvée avec les filtres fournis.";
+        }
 
         return teams.stream()
-            .map(t -> t.getName() + " : " + t.getCollaborators().stream()
-                .map(Collaborator::getName)
-                .collect(Collectors.joining(", ")))
-            .collect(Collectors.joining("\n"));
-    }
-
-    @Tool(description = "List teams and members filtered by both country and team name.")
-    public String getTeamsAndTeamMemberByCountryAndTeamName(String country, String teamName) {
-        var teams = teamService.findByCountryAndName(country, teamName);
-        if (teams.isEmpty()) return "Aucune équipe trouvée pour " + country + " / " + teamName;
-
-        return teams.stream()
-            .map(t -> t.getName() + " : " + t.getCollaborators().stream()
+            .map(t -> t.getName() + " (" + t.getCountry() + ") : " + t.getCollaborators().stream()
                 .map(Collaborator::getName)
                 .collect(Collectors.joining(", ")))
             .collect(Collectors.joining("\n"));
