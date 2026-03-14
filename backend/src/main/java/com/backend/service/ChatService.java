@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,6 +25,7 @@ public class ChatService {
     private final List<AiProvider> aiProviders;
     private final PlanningTools tools;
     private final ConcurrentHashMap<Long, ChatClient> clientCache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, LocalDateTime> cooldownCache = new ConcurrentHashMap<>();
 
     private static String buildSystemPrompt() {
         LocalDate today      = LocalDate.now();
@@ -79,6 +81,7 @@ public class ChatService {
                 }
                 return result;
             } catch (Exception e) {
+                handleModelError(model, e);
                 log.error("[AI] Error with selected model {}: {}", label, summarize(e));
                 throw new RuntimeException(
                     "Le modèle " + label + " a rencontré une erreur : " + friendlyError(e), e);
@@ -96,6 +99,10 @@ public class ChatService {
         Exception lastError = null;
 
         for (AiModel model : models) {
+            if (isInCooldown(model)) {
+                log.debug("[AI] Skipping model (cooldown): {}", model.getName());
+                continue;
+            }
             String label = model.getProvider() + " (" + model.getName() + ")";
             try {
                 log.debug("[AI] Trying provider: {}", label);
@@ -110,6 +117,7 @@ public class ChatService {
                 }
                 return result;
             } catch (Exception e) {
+                handleModelError(model, e);
                 tried.add(label);
                 lastError = e;
                 log.warn("[AI] Provider '{}' failed: {} — switching to next...", label, summarize(e));
@@ -138,6 +146,33 @@ public class ChatService {
         return ChatClient.builder(buildChatModel(model))
                 .defaultTools(tools)
                 .build();
+    }
+
+    private void handleModelError(AiModel model, Exception e) {
+        if (isQuotaError(e)) {
+            log.info("[AI] Quota/Rate limit reached for {}. Disabling in DB.", model.getName());
+            model.setTokenReached(true);
+            aiModelRepository.save(model);
+        } else {
+            log.info("[AI] Transient error for {}. Entering 5min cooldown.", model.getName());
+            cooldownCache.put(model.getId(), LocalDateTime.now().plusMinutes(5));
+        }
+    }
+
+    private boolean isInCooldown(AiModel model) {
+        LocalDateTime cooldownUntil = cooldownCache.get(model.getId());
+        if (cooldownUntil == null) return false;
+        if (LocalDateTime.now().isAfter(cooldownUntil)) {
+            cooldownCache.remove(model.getId());
+            return false;
+        }
+        return true;
+    }
+
+    private boolean isQuotaError(Exception e) {
+        String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+        return msg.contains("429") || msg.contains("rate_limit") || msg.contains("rate limit")
+                || msg.contains("quota_exceeded") || msg.contains("quota exceeded");
     }
 
     private ChatModel buildChatModel(AiModel model) {

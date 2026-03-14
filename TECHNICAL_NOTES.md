@@ -30,3 +30,16 @@ This document captures important architectural decisions, known bugs, and perfor
     - Reduces ambiguity for the AI model when deciding which tool to call.
     - Lowers token consumption by having fewer tool definitions in the system prompt.
     - Simplifies maintenance by centralizing the formatting and retrieval logic for a specific entity.
+
+## Resilience & Error Handling
+
+### Proactive Quota Management
+- **Issue**: Previously, failing models were retried on every request, causing unnecessary latency.
+- **Solution**: The system now checks for `429 (Rate Limit)` and `Quota Exceeded` errors. When encountered, the model is automatically marked as `tokenReached=true` in the database.
+
+### Basic Circuit Breaker (Cooldown)
+- **Mechanism**: A `cooldownCache` (`ConcurrentHashMap`) stores models that failed due to transient issues (e.g., `503 Service Unavailable`).
+- **Behavior**: Such models are placed in a **5-minute cooldown**. They are skipped during the fallback loop until the cooldown expires, improving system responsiveness.
+
+### Future Improvements
+- **Resilience4j**: For production scale, consider full integration of Resilience4j for more advanced patterns (exponential backoff, sophisticated circuit breakers).
