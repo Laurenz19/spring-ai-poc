@@ -13,11 +13,17 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChatService {
+
+    private final AiModelRepository aiModelRepository;
+    private final List<AiProvider> aiProviders;
+    private final PlanningTools tools;
+    private final ConcurrentHashMap<Long, ChatClient> clientCache = new ConcurrentHashMap<>();
 
     private static String buildSystemPrompt() {
         LocalDate today      = LocalDate.now();
@@ -59,10 +65,6 @@ public class ChatService {
         );
     }
 
-    private final AiModelRepository aiModelRepository;
-    private final List<AiProvider> aiProviders;
-    private final PlanningTools tools;
-
     public String respond(String message, Long modelId) {
         // ── Specific model requested ──────────────────────────────────────────
         if (modelId != null) {
@@ -71,7 +73,7 @@ public class ChatService {
             String label = model.getProvider() + " (" + model.getName() + ")";
             log.debug("[AI] Using selected model: {}", label);
             try {
-                String result = buildClient(model).prompt().user(message).call().content();
+                String result = callModel(model, message);
                 if (result == null || result.isBlank()) {
                     throw new RuntimeException("Le modèle n'a retourné aucune réponse.");
                 }
@@ -97,10 +99,7 @@ public class ChatService {
             String label = model.getProvider() + " (" + model.getName() + ")";
             try {
                 log.debug("[AI] Trying provider: {}", label);
-                String result = buildClient(model).prompt()
-                        .user(message)
-                        .call()
-                        .content();
+                String result = callModel(model, message);
                 if (result == null || result.isBlank()) {
                     tried.add(label);
                     log.warn("[AI] Provider '{}' returned empty response — switching to next...", label);
@@ -124,10 +123,19 @@ public class ChatService {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+    
+    private String callModel(AiModel model, String message) {
+        return clientCache.computeIfAbsent(model.getId(), id -> buildClient(model))
+                .prompt()
+                .system(buildSystemPrompt())
+                .user(message)
+                .call()
+                .content();
+    }
 
     private ChatClient buildClient(AiModel model) {
+        log.info("[AI] Building new ChatClient for model: {} ({})", model.getName(), model.getProvider());
         return ChatClient.builder(buildChatModel(model))
-                .defaultSystem(buildSystemPrompt())
                 .defaultTools(tools)
                 .build();
     }
