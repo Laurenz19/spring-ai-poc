@@ -1,4 +1,4 @@
-# Ollama Integration Guide — myITAssist
+# Ollama Integration Guide — backend
 
 This project supports two AI providers that can be switched via Spring profiles:
 - **`ollama`** — Free, runs locally via Docker (default)
@@ -62,7 +62,7 @@ docker exec -it ollama ollama list
 The default profile is already set to `ollama`. Simply run:
 
 ```bash
-cd myITAssist
+cd backend
 ./mvnw spring-boot:run
 ```
 
@@ -85,7 +85,7 @@ The frontend will be available at `http://localhost:4200`.
 ## Switching Between Providers
 
 ### Use Ollama (free, local) — default
-In [application.yaml](myITAssist/src/main/resources/application.yaml), set:
+In [application.yaml](backend/src/main/resources/application.yaml), set:
 ```yaml
 spring:
   profiles:
@@ -101,7 +101,7 @@ spring:
    # Linux / macOS
    export ANTHROPIC_API_KEY="sk-ant-..."
    ```
-2. In [application.yaml](myITAssist/src/main/resources/application.yaml), change:
+2. In [application.yaml](backend/src/main/resources/application.yaml), change:
    ```yaml
    spring:
      profiles:
@@ -145,8 +145,8 @@ docker start ollama
 ## Project Structure Reference
 
 ```
-myITAssist/
-├── myITAssist/                        # Spring Boot backend
+backend/
+├── backend/                        # Spring Boot backend
 │   └── src/main/resources/
 │       ├── application.yaml           # Main config — set active profile here
 │       ├── application-ollama.yaml    # Ollama profile config
